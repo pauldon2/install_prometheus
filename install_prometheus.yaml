@@ -1,0 +1,100 @@
+--- 
+#Install Prometheus
+- hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    - name: Create user prometheus no-home
+      user:
+        name: prometheus 
+        comment: prometheus
+        create_home: no
+
+    - name: Create a directories
+      file:
+        path: ["/etc/prometheus", "/var/lib/prometheus"]
+        state: directory
+        mode: '0755'
+        owner: prometheus
+        group: prometheus
+
+    - name: Download Prometheus 2.10 and extract
+      unarchive:
+        src: https://github.com/prometheus/prometheus/releases/download/v2.10.0/prometheus-2.10.0.linux-amd64.tar.gz
+        dest: /var/tmp
+        remote_src: yes
+
+    - name: Copy prometheus files
+      copy:
+        src: /var/tmp/prometheus-2.10.0.linux-amd64/prometheus
+        dest: /usr/local/bin/prometheus
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      notify: Restart prometheus
+
+    - name: Copy promtool
+      copy:
+        src: /var/tmp/prometheus-2.10.0.linux-amd64/promtool
+        dest: /usr/local/bin/promtool
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      notify: Restart prometheus
+
+    - name: Copy consoles catalog
+      copy:
+        src: /var/tmp/prometheus-2.10.0.linux-amd64/consoles
+        dest: /etc/prometheus
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+      notify: Restart prometheus
+
+    - name: Copy console_libraries catalog
+      copy:
+        src: /var/tmp/prometheus-2.10.0.linux-amd64/console_libraries
+        dest: /etc/prometheus
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+      notify: Restart prometheus
+
+    - name:  delete distributive
+      file:
+        path: /var/tmp/prometheus-2.10.0.linux-amd64
+        state: absent
+
+    - name: Copy config
+      copy:
+        src: files/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        backup: yes
+      notify: Restart prometheus
+
+    - name: Copy unit file
+      copy:
+        src: files/prometheus.service
+        dest: /etc/systemd/system/prometheus.service
+        owner: prometheus
+        group: prometheus
+        backup: yes
+      notify: Restart prometheus
+
+    - name: Enable service
+      systemd:
+        name: prometheus
+        enabled: yes
+
+  handlers:
+
+    - name: Restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted
